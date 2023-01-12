@@ -44,3 +44,76 @@ def find_train_form():
     )
 
     return markup
+
+
+def choose_car(cars: dict):
+    markup = types.InlineKeyboardMarkup()
+
+    for car in cars.keys():
+        markup.add(
+            types.InlineKeyboardButton(
+                text=f'{car}',
+                callback_data=keyboards_data.choose_car_factory
+                .new(car)
+            )
+        )
+
+    return markup
+
+
+def choose_place(chosen_place):
+    markup = types.InlineKeyboardMarkup(row_width=7)
+
+    for place in range(1, 57, 7):
+        markup.add(
+            types.InlineKeyboardButton(
+                text=f"({place})" if place == int(chosen_place) else f"{place}",
+                callback_data=keyboards_data.choose_places_factory
+                .new(str(place))
+            ),
+            types.InlineKeyboardButton(
+                text=f"({place+1})" if place+1 == int(
+                    chosen_place) else f"{place+1}",
+                callback_data=keyboards_data.choose_places_factory
+                .new(str(place+1))
+            ),
+            types.InlineKeyboardButton(
+                text=f"({place+2})" if place+2 == int(
+                    chosen_place) else f"{place+2}",
+                callback_data=keyboards_data.choose_places_factory
+                .new(str(place+2))
+            ),
+            types.InlineKeyboardButton(
+                text=f"({place+3})" if place+3 == int(
+                    chosen_place) else f"{place+3}",
+                callback_data=keyboards_data.choose_places_factory
+                .new(str(place+3))
+            ),
+            types.InlineKeyboardButton(
+                text=f"({place+4})" if place+4 == int(
+                    chosen_place) else f"{place+4}",
+                callback_data=keyboards_data.choose_places_factory
+                .new(str(place+4))
+            ),
+            types.InlineKeyboardButton(
+                text=f"({place+5})" if place+5 == int(
+                    chosen_place) else f"{place+5}",
+                callback_data=keyboards_data.choose_places_factory
+                .new(str(place+5))
+            ),
+            types.InlineKeyboardButton(
+                text=f"({place+6})" if place+6 == int(
+                    chosen_place) else f"{place+6}",
+                callback_data=keyboards_data.choose_places_factory
+                .new(str(place+6))
+            )
+        )
+
+    markup.add(
+        types.InlineKeyboardButton(
+            text="Назад",
+            callback_data="place_choose_back"
+        )
+    )
+
+    return markup

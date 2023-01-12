@@ -35,7 +35,11 @@ def start(message):
 @bot.message_handler()
 def main_handler(message):
     if message.text == "Найти поезд":
-        form = {'date': '', 'train': ''}
+        form = {'date': '',
+                'train': '',
+                'step': '',
+                'cars': '',
+                'car_number': ''}
         temp_input[message.chat.id] = form
 
         bot.send_message(message.chat.id,
@@ -67,12 +71,7 @@ def input_find_train_form(call: types.CallbackQuery):
 
 def set_find_train_form(message):
     form = temp_input[message.chat.id]
-
-    if form['step'] == 0:
-        form['date'] = message.text
-
-    elif form['step'] == 1:
-        form['train'] = message.text
+    form[form['step']] = message.text
 
     temp_input[message.chat.id] = form
 
@@ -109,18 +108,69 @@ def display_cars(message: types.Message):
                          reply_markup=markups.base_markup())
         return
 
+    temp_input[message.chat.id]['stops'] = stops
+
     cars = get_cars_info(message.chat.id,
                          temp_input[message.chat.id]['train'],
                          stops)
-    print(cars)
-    for car_key in cars.keys():
-        print(car_key)
-        ans = f"Вагон номер {car_key}\n"
-        ans += "===============\n"
-        for stop_id in range(len(stops) - 1):
-            ans += f"{stops[stop_id]['station']['name']}-{stops[stop_id + 1]['station']['name']}:\n"
-            ans += f"{cars[car_key][stop_id]}\n"
-        bot.send_message(message.chat.id, ans)
+
+    temp_input[message.chat.id]['cars'] = cars
+
+    bot.send_message(message.chat.id,
+                     text="Выберите вагон",
+                     reply_markup=markups.choose_car(cars))
+
+
+@bot.callback_query_handler(func=None,
+                            config=keyboards_data.choose_car_factory.filter())
+def display_init_places_information(call: types.CallbackQuery):
+    call_data: dict = keyboards_data.choose_car_factory.parse(
+        callback_data=call.data)
+    car_number = call_data['number']
+    temp_input[call.message.chat.id]['car_number'] = car_number
+
+    bot.delete_message(chat_id=call.message.chat.id,
+                       message_id=call.message.message_id)
+
+    bot.send_message(
+        call.message.chat.id,
+        text=strings.places_text(
+            temp_input[call.message.chat.id]['stops'],
+            temp_input[call.message.chat.id]['cars'][car_number],
+            car_number, '1'), parse_mode='Markdown',
+        reply_markup=markups.choose_place('1'))
+
+
+@bot.callback_query_handler(func=None,
+                            config=keyboards_data.choose_places_factory.filter())
+def display_places_information(call: types.CallbackQuery):
+    call_data: dict = keyboards_data.choose_places_factory.parse(
+        callback_data=call.data)
+    chosen_place = call_data['place']
+    car_number = temp_input[call.message.chat.id]['car_number']
+
+    bot.edit_message_text(
+        chat_id=call.message.chat.id,
+        message_id=call.message.message_id,
+        text=strings.places_text(
+            temp_input[call.message.chat.id]['stops'],
+            temp_input[call.message.chat.id]['cars'][car_number],
+            car_number=car_number,
+            chosen_place=chosen_place
+        ), parse_mode="Markdown",
+        reply_markup=markups.choose_place(chosen_place))
+
+
+@bot.callback_query_handler(func=lambda c: c.data == 'place_choose_back')
+def place_choose_back(call: types.CallbackQuery):
+    bot.delete_message(chat_id=call.message.chat.id,
+                       message_id=call.message.message_id)
+
+    bot.send_message(call.message.chat.id,
+                     text="Выберите вагон",
+                     reply_markup=markups.choose_car(
+                         temp_input[call.message.chat.id]['cars']
+                     ))
 
 
 def get_stops_info(date: str, train: str) -> list:
@@ -156,7 +206,9 @@ def get_stops_info(date: str, train: str) -> list:
         res = s.get("https://pass.rzd.ru/ticket/services/route/basicRoute",
                     params=params,
                     headers=headers).json()
+
         time.sleep(1)
+
         params['rid'] = res['RID']
         headers['Cookie'] = f"JSESSIONID={s.cookies['JSESSIONID']};" \
                             f" session-cookie={s.cookies['session-cookie']}"
@@ -200,39 +252,36 @@ def get_cars_info(user_id: int, train: str, stops) -> dict:
                    'Accept': '*/*',
                    'Accept-Encoding': 'gzip, deflate, br',
                    'Connection': 'keep-alive'}
+        try:
+            s = requests.Session()
+            res = s.get("https://pass.rzd.ru/timetable/public/",
+                        params=params,
+                        headers=headers).json()
+            # print(f"RID response: {res}")
 
-        s = requests.Session()
-        res = s.get("https://pass.rzd.ru/timetable/public/",
-                    params=params,
-                    headers=headers).json()
-        # print(f"RID response: {res}")
+            time.sleep(1)
 
-        time.sleep(1)
+            params['rid'] = res['RID']
+            headers['Cookie'] = f"JSESSIONID={s.cookies['JSESSIONID']};" \
+                                f" session-cookie={s.cookies['session-cookie']}"
+            res = s.get("https://pass.rzd.ru/timetable/public/",
+                        params=params,
+                        headers=headers)
 
-        params['rid'] = res['RID']
-        headers['Cookie'] = f"JSESSIONID={s.cookies['JSESSIONID']};" \
-                            f" session-cookie={s.cookies['session-cookie']}"
-        res = s.get("https://pass.rzd.ru/timetable/public/",
-                    params=params,
-                    headers=headers)
+            # print(f"Cars res: {res}")
+            # print(res.json())
+            cars = res.json()["lst"][0]["cars"]
 
-        # time.sleep(1)
-
-        if res.status_code != 200:
-            continue
-
-        # print(f"Cars res: {res}")
-        # print(res.json())
-        cars = res.json()["lst"][0]["cars"]
-
-        for car in cars:
-            if car["cnumber"] in r:
-                r[car["cnumber"]][number_of_station] = calc_free_places(
-                    car['places'])
-            else:
-                r[car["cnumber"]] = [[] for k in range(0, len(stops) - 1)]
-                r[car["cnumber"]][number_of_station] = calc_free_places(
-                    car['places'])
+            for car in cars:
+                if car["cnumber"] in r:
+                    r[car["cnumber"]][number_of_station] = calc_free_places(
+                        car['places'])
+                else:
+                    r[car["cnumber"]] = [[] for k in range(0, len(stops) - 1)]
+                    r[car["cnumber"]][number_of_station] = calc_free_places(
+                        car['places'])
+        except:
+            bot.send_message(user_id, "Ошибка при получении вагона")
 
     return r
 
