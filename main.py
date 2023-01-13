@@ -1,6 +1,11 @@
+import os
+
+import sys
+
 import time
 
 import telebot
+from requests import ReadTimeout
 from telebot import types
 import requests
 
@@ -16,6 +21,11 @@ temp_input = {}
 
 @bot.message_handler(commands=['start'])
 def start(message):
+    form = {'date': '',
+            'train': '',
+            'step': '',
+            'cars': '',
+            'car_number': ''}
     bot.send_message(message.chat.id,
                      "Добро пожаловать!",
                      reply_markup=markups.base_markup())
@@ -48,6 +58,10 @@ def main_handler(message):
         bot.send_message(message.chat.id,
                          text=strings.find_train_form_text(form),
                          reply_markup=markups.find_train_form())
+
+    if message.text == "Избранное":
+        bot.send_message(message.chat.id,
+                         "Избранное")
 
 
 @bot.callback_query_handler(func=None,
@@ -104,8 +118,13 @@ def display_cars(message: types.Message):
                            temp_input[message.chat.id]['train'])
     if not stops:
         bot.send_message(message.chat.id,
-                         "Поезд не найден",
-                         reply_markup=markups.base_markup())
+                         "‼️Поезд не найден‼️")
+        bot.send_message(message.chat.id,
+                         text=strings.find_train_form_text(
+                             temp_input[message.chat.id]
+                         ),
+                         reply_markup=markups.find_train_form())
+
         return
 
     temp_input[message.chat.id]['stops'] = stops
@@ -173,6 +192,16 @@ def place_choose_back(call: types.CallbackQuery):
                      ))
 
 
+@bot.callback_query_handler(func=lambda c: c.data == 'car_choose_back')
+def car_choose_back(call: types.CallbackQuery):
+    bot.delete_message(chat_id=call.message.chat.id,
+                       message_id=call.message.message_id)
+
+    bot.send_message(call.message.chat.id,
+                     text="Поиск отменен",
+                     reply_markup=markups.base_markup())
+
+
 def get_stops_info(date: str, train: str) -> list:
     """
     :param date: date of departure
@@ -201,6 +230,7 @@ def get_stops_info(date: str, train: str) -> list:
                'Accept': '*/*',
                'Accept-Encoding': 'gzip, deflate, br',
                'Connection': 'keep-alive'}
+
     try:
         s = requests.Session()
         res = s.get("https://pass.rzd.ru/ticket/services/route/basicRoute",
@@ -219,7 +249,8 @@ def get_stops_info(date: str, train: str) -> list:
 
         return res['data']['routes'][0]['stops']
 
-    except:
+    except Exception as e:
+        print(e)
         return []
 
 
@@ -280,7 +311,8 @@ def get_cars_info(user_id: int, train: str, stops) -> dict:
                     r[car["cnumber"]] = [[] for k in range(0, len(stops) - 1)]
                     r[car["cnumber"]][number_of_station] = calc_free_places(
                         car['places'])
-        except:
+        except Exception as e:
+            print(e.with_traceback())
             bot.send_message(user_id, "Ошибка при получении вагона")
 
     return r
@@ -325,4 +357,12 @@ def calc_free_places(s: str) -> list:
 
 
 bot.add_custom_filter(CategoriesCallbackFilter())
-bot.polling(none_stop=True)
+
+
+try:
+    bot.infinity_polling(timeout=10, long_polling_timeout=5)
+except (ConnectionError, ReadTimeout) as e:
+    sys.stdout.flush()
+    os.execv(sys.argv[0], sys.argv)
+else:
+    bot.infinity_polling(timeout=10, long_polling_timeout=5)

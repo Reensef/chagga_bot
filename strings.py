@@ -12,6 +12,8 @@ def places_text(stops, car, car_number, chosen_place):
 
     for stop_id in range(len(stops)):
         temp = f"{stops[stop_id]['station']['name'].lower().capitalize()}"
+        if stops[stop_id]['depTime']:
+            temp += f"({stops[stop_id]['depTime'][-5:]})"
 
         if stop_id == len(stops) - 1:
             if chosen_place in car[stop_id - 1]:

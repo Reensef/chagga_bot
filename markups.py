@@ -7,8 +7,7 @@ def base_markup():
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True,
                                        row_width=1)
     markup.add(
-        types.KeyboardButton("Найти поезд"),
-        types.KeyboardButton("Избранное")
+        types.KeyboardButton("Найти поезд")
     )
 
     return markup
@@ -57,6 +56,13 @@ def choose_car(cars: dict):
                 .new(car)
             )
         )
+
+    markup.add(
+        types.InlineKeyboardButton(
+            text="Выход",
+            callback_data="car_choose_back"
+        )
+    )
 
     return markup
 
