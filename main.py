@@ -15,7 +15,7 @@ import markups
 import strings
 from helper import CategoriesCallbackFilter
 
-bot = telebot.TeleBot(key.api_key)
+bot = telebot.TeleBot(key.token)
 
 temp_input = {}
 
