@@ -9,12 +9,13 @@ from requests import ReadTimeout
 from telebot import types
 import requests
 
+import key
 import keyboards_data
 import markups
 import strings
 from helper import CategoriesCallbackFilter
 
-bot = telebot.TeleBot("5410238338:AAE24dH_PdOTpQEfjVeGFaKhNg3XTwwCZyI")
+bot = telebot.TeleBot(key.api_key)
 
 temp_input = {}
 
